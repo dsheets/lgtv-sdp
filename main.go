@@ -133,9 +133,10 @@ func serveSdpForever(address net.IP, certFile, keyFile, jsonFile, headersDir str
 			w.Header().Add("X-Server-Time", strconv.FormatInt(now, 10))
 
 			writeBody(w, jsonFile)
+			log.Printf("Served request")
 		})
 
-	log.Print("Serving LG TV SDP initservices")
+	log.Print("Serving LG TV SDP initservices...")
 	err := http.ListenAndServeTLS(address.String()+":443", certFile, keyFile, nil)
 	log.Fatal(err)
 }
@@ -143,7 +144,15 @@ func serveSdpForever(address net.IP, certFile, keyFile, jsonFile, headersDir str
 func addHeaders(hs http.Header, dir string) {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		log.Printf("Skipping custom headers in dir %s: %s", dir, err)
+		if os.IsNotExist(err) {
+			log.Printf("Creating header directory %s", dir)
+			err = os.Mkdir(dir, 0755)
+			if err != nil {
+				log.Printf("Could not create header directory %s: %s", dir, err)
+			}
+		} else {
+			log.Printf("Skipping custom headers in dir %s: %s", dir, err)
+		}
 		return
 	}
 
@@ -161,8 +170,16 @@ func addHeaders(hs http.Header, dir string) {
 func writeBody(w io.Writer, path string) {
 	body, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Printf("Skipping body %s: %s", path, err)
-		return
+		if os.IsNotExist(err) {
+			log.Printf("Creating empty body file %s", path)
+			err = ioutil.WriteFile(path, nil, 0600)
+			if err != nil {
+				log.Printf("Could not create empty body file %s: %s", path, err)
+			}
+		} else {
+			log.Printf("Skipping body %s: %s", path, err)
+			return
+		}
 	}
 
 	n, err := w.Write(body)

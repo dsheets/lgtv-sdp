@@ -6,12 +6,16 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"io"
 	"io/ioutil"
 	"log"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
+	"path"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -19,45 +23,43 @@ import (
 const certFile string = "cert.pem"
 const keyFile string = "key.pem"
 const jsonFile string = "initservices.json"
-const headersFile string = "initservices.headers.json"
-
-// TODO: get address to listen on somehow
-const address string = "192.168.3.1:443"
+const headersDir string = "initservices.headers"
 
 func main() {
-	ensureTLSReady(certFile, keyFile)
-	ensureResponseDataReady(jsonFile, headersFile)
+	if len(os.Args) < 2 {
+		log.Fatal("Bind address required")
+	}
+	address := net.ParseIP(os.Args[1])
+	if address == nil {
+		log.Fatalf("Could not parse %s as IP address", os.Args[1])
+	}
 
-	serveSdpForever(certFile, keyFile, jsonFile, headersFile)
+	ensureTLSReady(certFile, keyFile)
+	serveSdpForever(address, certFile, keyFile, jsonFile, headersDir)
+}
+
+func isFileReadableOrMissing(path string) bool {
+	err := syscall.Access(path, syscall.O_RDONLY)
+	if err == nil {
+		return true
+	} else if os.IsNotExist(err) {
+		return false
+	}
+	log.Fatalf("Error reading %s: %s", path, err)
+	return false // impossible
 }
 
 func ensureTLSReady(certFile, keyFile string) {
-	certOK := false
-	keyOK := false
+	certOK := isFileReadableOrMissing(certFile)
+	keyOK := isFileReadableOrMissing(keyFile)
 
-	if err := syscall.Access(certFile, syscall.O_RDONLY); err == nil {
-		certOK = true
-	} else if os.IsNotExist(err) {
-		// keep going
-	} else {
-		log.Fatalf("Error reading %s: %s", certFile, err)
-	}
-
-	if err := syscall.Access(keyFile, syscall.O_RDONLY); err == nil {
-		keyOK = true
-	} else if os.IsNotExist(err) {
-		// keep going
-	} else {
-		log.Fatalf("Error reading %s: %s", keyFile, err)
-	}
-
-	if certOK && keyOK {
-		// continue
-	} else if certOK == keyOK { // both false, generate new CA signed cert
-		log.Printf("No certificate %s or key %s; generating...", certFile, keyFile)
-		err := generateCertificateAndKey(certFile, keyFile)
-		if err != nil {
-			log.Fatalf("Could not generate certificate and key: %s", err)
+	if certOK == keyOK {
+		if !certOK { // both false, generate new CA signed cert
+			log.Printf("No certificate %s or key %s; generating...", certFile, keyFile)
+			err := generateCertificateAndKey(certFile, keyFile)
+			if err != nil {
+				log.Fatalf("Could not generate certificate and key: %s", err)
+			}
 		}
 	} else if certOK { // key missing
 		log.Fatalf("Missing key file %s for cert %s", keyFile, certFile)
@@ -122,21 +124,51 @@ func generateCertificateAndKey(certFile, keyFile string) error {
 	return nil
 }
 
-func ensureResponseDataReady(jsonFile, headersFile string) {
-	// TODO: do
-}
-
-// TODO: use jsonFile and headersFile
-func serveSdpForever(certFile, keyFile, jsonFile, headersFile string) {
+func serveSdpForever(address net.IP, certFile, keyFile, jsonFile, headersDir string) {
 	http.HandleFunc("/rest/sdp/v8.0/initservices",
 		func(w http.ResponseWriter, req *http.Request) {
+			addHeaders(w.Header(), headersDir)
+
 			now := nowUnixMilliseconds()
 			w.Header().Add("X-Server-Time", strconv.FormatInt(now, 10))
+
+			writeBody(w, jsonFile)
 		})
 
 	log.Print("Serving LG TV SDP initservices")
-	err := http.ListenAndServeTLS(address, certFile, keyFile, nil)
+	err := http.ListenAndServeTLS(address.String()+":443", certFile, keyFile, nil)
 	log.Fatal(err)
+}
+
+func addHeaders(hs http.Header, dir string) {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		log.Printf("Skipping custom headers in dir %s: %s", dir, err)
+		return
+	}
+
+	for _, fileInfo := range files {
+		name := fileInfo.Name()
+		value, err := ioutil.ReadFile(path.Join(dir, name))
+		if err != nil {
+			log.Printf("Skipping header %s: %s", name, err)
+		} else {
+			hs.Add(name, strings.TrimSuffix(string(value), "\n"))
+		}
+	}
+}
+
+func writeBody(w io.Writer, path string) {
+	body, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Printf("Skipping body %s: %s", path, err)
+		return
+	}
+
+	n, err := w.Write(body)
+	if err != nil {
+		log.Printf("Error writing body (%d / %d bytes written): %s", n, len(body), err)
+	}
 }
 
 func nowUnixMilliseconds() int64 {

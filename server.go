@@ -18,7 +18,7 @@ func run(config configuration) {
 }
 
 func serveSdpForever(config configuration, certFile, keyFile, jsonFile, headersDir string) {
-	http.HandleFunc("/rest/sdp/v8.0/initservices",
+	http.HandleFunc("/",
 		func(w http.ResponseWriter, req *http.Request) {
 			addHeaders(w.Header(), headersDir)
 
@@ -26,7 +26,7 @@ func serveSdpForever(config configuration, certFile, keyFile, jsonFile, headersD
 			w.Header().Add("X-Server-Time", strconv.FormatInt(now, 10))
 
 			writeBody(w, jsonFile)
-			log.Printf("Served request")
+			log.Printf("Served request for %s", req.URL.Path)
 		})
 
 	log.Print("Serving LG TV SDP initservices...")

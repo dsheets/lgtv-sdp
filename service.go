@@ -155,7 +155,7 @@ func execServiceStatus(s service.Service) int {
 		log.Printf("Service is running")
 		return 0
 	default:
-		log.Printf("Unexpected service status: %s", status)
+		log.Printf("Unexpected service status: %v", status)
 		return 2
 	}
 }

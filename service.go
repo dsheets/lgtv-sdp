@@ -1,4 +1,6 @@
 // Copyright 2020 David Sheets
+// Copyright 2020 Tejas Kokje
+// Copyright 2019-2020 AdGuard
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by

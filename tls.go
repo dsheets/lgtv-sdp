@@ -25,12 +25,14 @@ import (
 	"log"
 	"math/big"
 	"os"
-	"syscall"
 )
 
 func isFileReadableOrMissing(path string) bool {
-	err := syscall.Access(path, syscall.O_RDONLY)
+	file, err := os.Open(path)
 	if err == nil {
+		if err = file.Close(); err != nil {
+			log.Fatalf("Error closing %s: %s", path, err)
+		}
 		return true
 	} else if os.IsNotExist(err) {
 		return false

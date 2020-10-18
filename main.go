@@ -27,6 +27,8 @@ const keyFile string = "key.pem"
 const jsonFile string = "initservices.json"
 const headersDir string = "initservices.headers"
 
+var version string = "dev"
+
 func main() {
 	exitCode := 0
 
@@ -85,6 +87,8 @@ func eprintf(fmtStr string, args ...interface{}) {
 }
 
 func printUsage(cmdName string) {
+	eprintf("lgtv-sdp version %s\n\n", version)
+
 	eprintf("%s BIND_ADDRESS\n", cmdName)
 	eprintf("  start the server listening on IP address BIND_ADDRESS\n\n")
 

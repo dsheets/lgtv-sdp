@@ -51,6 +51,7 @@ archives:
     files:
       - README.md
       - LICENSE.md
+      - CHANGELOG.md
 
 snapshot:
   name_template: "{{ .Tag }}-next"

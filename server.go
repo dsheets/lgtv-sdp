@@ -22,14 +22,28 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 )
 
 func run(config configuration) {
+	certFile := absolutize(certFile)
+	keyFile := absolutize(keyFile)
+	jsonFile := absolutize(jsonFile)
+	headersDir := absolutize(headersDir)
 	ensureTLSReady(certFile, keyFile)
 	serveSdpForever(config, certFile, keyFile, jsonFile, headersDir)
+}
+
+func absolutize(fsPath string) string {
+	execPath, err := os.Executable()
+	if err != nil {
+		log.Fatalf("Could not get executable path: %s", err)
+	}
+
+	return path.Join(filepath.Dir(execPath), fsPath)
 }
 
 func serveSdpForever(config configuration, certFile, keyFile, jsonFile, headersDir string) {

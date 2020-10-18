@@ -2,3 +2,5 @@ lgtv-sdp
 *.pem
 *~
 initservices.*
+.github_token
+dist

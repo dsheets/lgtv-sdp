@@ -48,6 +48,9 @@ archives:
         format: zip
       - goos: darwin
         format: zip
+    files:
+      - README.md
+      - LICENSE.md
 
 snapshot:
   name_template: "{{ .Tag }}-next"
